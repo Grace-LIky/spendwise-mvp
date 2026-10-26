@@ -12,7 +12,7 @@ function sameSecret(a: string, b: string): boolean {
 }
 function centsOf(value: unknown): number | null {
   if (typeof value !== 'number' && typeof value !== 'string') return null;
-  const str = String(value).trim().replace(/^(?:CAD\s*|CA\$\s*|\$\s*)/i, '').replace(/,/g, '');
+  const str = String(value).trim().replace(/^(?:CAD\s*|CA\$\s*|[$¥€£]\s*)/i, '').replace(/,/g, '');
   if (!/^\d+(?:\.\d{1,2})?$/.test(str)) return null;
   const [dollars, fraction = ''] = str.split('.');
   const cents = Number(dollars) * 100 + Number(fraction.padEnd(2, '0'));
