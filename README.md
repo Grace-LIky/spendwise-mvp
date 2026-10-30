@@ -1,5 +1,5 @@
 
-# Spendwise 💸
+# Spendwise 
 
 ### Automated Personal Finance & Expense Tracking Platform
 
@@ -7,18 +7,18 @@ Spendwise is a full-stack personal finance web application that simplifies expen
 
 Built with **Next.js, TypeScript, Supabase, and iOS Shortcuts**, Spendwise helps users understand their spending habits, monitor monthly budgets, and visualize financial trends without manually recording every transaction.
 
-🌐 **Live Demo:** https://spendwise-mvp-giqp.vercel.app
+ **Live Demo:** https://spendwise-mvp-giqp.vercel.app
 
-## ✨ Features
+##  Features
 
-### 💳 Apple Pay Transaction Automation
+###  Apple Pay Transaction Automation
 - Integrates with Apple Wallet transaction triggers using iOS Shortcuts.
 - Sends supported Apple Pay transaction data to a secure REST API.
 - Automatically captures merchant information and transaction amounts when available.
 - Stores incoming transactions in a PostgreSQL database.
 - Supports transaction review and reconciliation.
 
-### 🧠 Automatic Expense Categorization
+###  Automatic Expense Categorization
 - Automatically classifies expenses based on merchant names.
 - Supports categories including:
   - Food & Drinks
@@ -30,32 +30,32 @@ Built with **Next.js, TypeScript, Supabase, and iOS Shortcuts**, Spendwise helps
 - Allows users to manually correct transaction categories.
 - Supports merchant-based classification rules.
 
-### 📊 Interactive Financial Dashboard
+###  Interactive Financial Dashboard
 - Displays total monthly spending.
 - Visualizes spending distribution by category.
 - Tracks spending trends across multiple months.
 - Provides an overview of recent transactions.
 - Compares expenses against monthly budgets.
 
-### 💰 Budget Management
+###  Budget Management
 - Tracks monthly spending against a configurable budget.
 - Displays budget utilization and remaining balance.
 - Helps users identify spending patterns.
 
-### 🧾 Transaction Management
+###  Transaction Management
 - Add expenses manually.
 - Review and categorize transactions.
 - Search transaction history.
 - Import transaction records from CSV files.
 - Review automatically captured transactions.
 
-### 📈 Monthly Spending Reports
+###  Monthly Spending Reports
 - Generates monthly spending summaries.
 - Visualizes spending patterns with interactive charts.
 - Provides insights into spending categories and trends.
 - Supports exporting reports as PDF.
 
-## 🛠️ Tech Stack
+##  Tech Stack
 
 | Layer | Technology |
 |-------|------------|
@@ -69,7 +69,7 @@ Built with **Next.js, TypeScript, Supabase, and iOS Shortcuts**, Spendwise helps
 | Deployment | Vercel |
 | Version Control | Git & GitHub |
 
-## 🏗️ System Architecture
+##  System Architecture
 
 ```text
        Apple Pay Transaction
@@ -101,7 +101,7 @@ Built with **Next.js, TypeScript, Supabase, and iOS Shortcuts**, Spendwise helps
     History   Reports  Analytics
 ```
 
-## 🚀 Getting Started
+##  Getting Started
 
 ### Prerequisites
 
@@ -205,7 +205,7 @@ Replace the example values with the corresponding dynamic Wallet transaction var
 - Historical transactions may require CSV import.
 - Real-world automated Wallet transaction capture is awaiting end-to-end validation.
 
-## 🔐 Security
+##  Security
 
 Spendwise is designed to keep personal financial information separate from publicly available source code.
 
@@ -217,7 +217,7 @@ Spendwise is designed to keep personal financial information separate from publi
 
 **Never commit `.env.local`, private API keys, financial statements, or personal transaction exports to GitHub.**
 
-## 🧪 Testing
+##  Testing
 
 The MVP has been tested using simulated transactions.
 
@@ -230,7 +230,7 @@ The MVP has been tested using simulated transactions.
 | Wallet automation configuration | Completed |
 | Real Apple Pay transaction capture | Pending |
 
-## 🗺️ Roadmap
+##  Roadmap
 
 - [x] Build the full-stack MVP
 - [x] Implement transaction ingestion API
@@ -246,7 +246,7 @@ The MVP has been tested using simulated transactions.
 - [ ] Expand monthly financial analytics
 - [ ] Improve mobile user experience
 
-## 👩‍💻 Author
+##  Author
 
 **Grace Li**
 
