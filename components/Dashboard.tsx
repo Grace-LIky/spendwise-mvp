@@ -44,7 +44,9 @@ function saveFile(text: string, filename: string) {
   const a = document.createElement('a'); a.href = url; a.download = filename; a.click(); URL.revokeObjectURL(url);
 }
 
-export default function Dashboard() {
+export default function Dashboard({ demoMode = false }: { demoMode?: boolean }) {
+  // Public preview uses local sample data; no Supabase requests or user sessions.
+  const usingDemo = demoMode || !connected;
   const [tab, setTab] = useState<Tab>('overview');
   const [menuOpen, setMenuOpen] = useState(false);
   const [month, setMonth] = useState(() => monthKey(new Date()));
@@ -53,7 +55,7 @@ export default function Dashboard() {
   const [budgets, setBudgets] = useState<Budget[]>([]);
   const [ready, setReady] = useState(false);
   const [session, setSession] = useState<Session | null>(null);
-  const [authLoading, setAuthLoading] = useState(connected);
+  const [authLoading, setAuthLoading] = useState(connected && !demoMode);
   const [email, setEmail] = useState('');
   const [busy, setBusy] = useState(false);
   const [banner, setBanner] = useState<{ text: string; error?: boolean } | null>(null);
@@ -83,7 +85,7 @@ export default function Dashboard() {
   }, []);
 
   useEffect(() => {
-    if (!connected || !supabase) {
+    if (usingDemo || !supabase) {
       try {
         const raw = localStorage.getItem('spendwise-demo-v1');
         if (raw) {
@@ -109,10 +111,10 @@ export default function Dashboard() {
       else { setTxs([]); setRules({}); setBudgets([]); }
     });
     return () => { active = false; sub.subscription.unsubscribe(); };
-  }, [loadAccount]);
+  }, [loadAccount, usingDemo]);
 
   useEffect(() => {
-    if (ready && !connected) localStorage.setItem('spendwise-demo-v1', JSON.stringify({ txs, rules, budgets }));
+    if (ready && usingDemo) localStorage.setItem('spendwise-demo-v1', JSON.stringify({ txs, rules, budgets }));
   }, [txs, rules, budgets, ready]);
   useEffect(() => {
     setBudgetInput(String((budgets.find(b => b.month === month)?.amount_cents ?? 200000) / 100));
@@ -161,7 +163,7 @@ export default function Dashboard() {
       category: form.category === 'Auto' ? categorize(merchant, rules) : form.category, currency: 'CAD', occurred_at: new Date(`${form.date}T12:00:00`).toISOString(),
       source: 'manual', status: 'confirmed', notes: form.notes || null };
     setBusy(true);
-    if (connected && supabase && session) {
+    if (!demoMode && connected && supabase && session) {
       const { data, error } = await supabase.from('transactions').insert({ ...newTx, user_id: session.user.id }).select().single();
       if (error) { notify(error.message, true); setBusy(false); return; }
       setTxs(old => [data as Transaction, ...old]);
@@ -170,7 +172,7 @@ export default function Dashboard() {
   }
   async function changeCategory(tx: Transaction, category: Category) {
     setBusy(true);
-    if (connected && supabase && session) {
+    if (!demoMode && connected && supabase && session) {
       const a = await supabase.from('transactions').update({ category }).eq('id', tx.id);
       if (a.error) { notify(a.error.message, true); setBusy(false); return; }
       const b = await supabase.from('merchant_rules').upsert({ user_id: session.user.id, merchant_key: merchantKey(tx.merchant), category }, { onConflict: 'user_id,merchant_key' });
@@ -182,7 +184,7 @@ export default function Dashboard() {
     notify('Category changed. Future matching merchants will use your choice.');
   }
   async function markConfirmed(tx: Transaction) {
-    if (connected && supabase) {
+    if (!demoMode && connected && supabase) {
       const { error } = await supabase.from('transactions').update({ status: 'confirmed' }).eq('id', tx.id);
       if (error) return notify(error.message, true);
     }
@@ -191,7 +193,7 @@ export default function Dashboard() {
   }
   async function deleteTransaction(tx: Transaction) {
     if (!window.confirm(`Delete ${tx.merchant} ${money(tx.amount_cents)}?`)) return;
-    if (connected && supabase) {
+    if (!demoMode && connected && supabase) {
       const { error } = await supabase.from('transactions').delete().eq('id', tx.id);
       if (error) return notify(error.message, true);
     }
@@ -202,7 +204,7 @@ export default function Dashboard() {
     if (!/^\d+(?:\.\d{1,2})?$/.test(budgetInput) || Number(budgetInput) <= 0) return notify('Enter a positive CAD budget.', true);
     const cents = Math.round(Number(budgetInput) * 100);
     if (cents > 100000000) return notify('Budget is too high.', true);
-    if (connected && supabase && session) {
+    if (!demoMode && connected && supabase && session) {
       const { error } = await supabase.from('budgets').upsert({ month, amount_cents: cents, user_id: session.user.id }, { onConflict: 'user_id,month' });
       if (error) return notify(error.message, true);
     }
@@ -237,7 +239,7 @@ export default function Dashboard() {
         external_id: `csv:${date.toISOString().slice(0,10)}:${merchantKey(merchant)}:${amt}:${i}` });
     }
     if (!accepted.length) return notify(`Nothing imported; ${skipped} skipped. Check column mapping, date format, and amount sign.`, true);
-    if (connected && supabase && session) {
+    if (!demoMode && connected && supabase && session) {
       const { data, error } = await supabase.from('transactions').insert(accepted.map(t => ({ ...t, user_id: session.user.id }))).select();
       if (error) return notify(error.message, true);
       setTxs(old => [...(data as Transaction[]), ...old]);
@@ -251,18 +253,19 @@ export default function Dashboard() {
   }, [txs, month]);
 
   if (!ready || authLoading) return <div className="splash"><div className="brand-mark"><Activity size={28} /></div><h1>Spendwise</h1><p>Preparing your workspace…</p></div>;
-  if (connected && !session) return <div className="auth-shell"><div className="auth-card">
+  if (connected && !demoMode && !session) return <div className="auth-shell"><div className="auth-card">
     <div className="brand-mark large"><Activity /></div><p className="eyebrow">YOUR PRIVATE MONEY WORKSPACE</p>
     <h1>Know where your money goes.</h1><p className="muted">Sign in with a secure email link. Your transactions are private to your account.</p>
     <form onSubmit={login} className="stack gap-md"><label className="field-label" htmlFor="login-email">Email</label><input required id="login-email" type="email" placeholder="you@example.com" value={email} onChange={e => setEmail(e.target.value)} /><button className="btn primary full" disabled={busy} type="submit">{busy ? 'Sending…' : 'Send sign-in link'} <ArrowRight size={17} /></button></form>
     {banner && <p className={`alert ${banner.error ? 'error' : ''}`}>{banner.text}</p>}
+    <a className="btn outline full" href="/demo">Explore interactive demo <ArrowRight size={16} /></a>
     <div className="auth-foot"><LockKeyhole size={15} /> Supabase email authentication · CAD only</div>
   </div></div>;
 
   return <div className="app-shell">
     <aside className={`sidebar ${menuOpen ? 'open' : ''}`}>
       <div className="brand"><div className="brand-mark"><Activity size={21}/></div><span>spendwise<span className="brand-dot">.</span></span></div>
-      <div className="workspace"><div className="workspace-icon">G</div><div><b>Personal workspace</b><small>{connected ? 'Private account' : 'Demo environment'}</small></div><ChevronDown size={15} /></div>
+      <div className="workspace"><div className="workspace-icon">G</div><div><b>Personal workspace</b><small>{usingDemo ? 'Public demo' : 'Private account'}</small></div><ChevronDown size={15} /></div>
       <div className="side-label">WORKSPACE</div>
       <nav>{tabs.map(t => <button key={t.key} onClick={() => { setTab(t.key); setMenuOpen(false); }} className={`nav-item ${tab === t.key ? 'selected' : ''}`}><t.icon size={18} strokeWidth={2}/>{t.label}{t.key === 'transactions' && pendingCount > 0 && <span className="mini-count">{pendingCount}</span>}</button>)}</nav>
       <div className="sidebar-bottom"><div className="side-tip"><div className="tip-icon"><Sparkles size={17}/></div><b>Better spending habits</b><p>See patterns, set budgets, and make informed decisions.</p></div><div className="side-version">Spendwise MVP · v0.1</div></div>
@@ -272,7 +275,7 @@ export default function Dashboard() {
       <header className="topbar"><div className="topbar-left"><button className="icon-btn mobile-menu" aria-label="Open navigation" onClick={() => setMenuOpen(true)}><Menu size={21}/></button><span className="breadcrumb">Workspace</span><span className="divider-v">/</span><b>{tabs.find(t => t.key === tab)?.label}</b></div><div className="topbar-right"><span className="currency-chip">🇨🇦 CAD</span><span className="avatar">G</span></div></header>
       <main className="content">
         {banner && <div role="status" className={`notice ${banner.error ? 'notice-error' : ''}`}><span>{banner.text}</span><button aria-label="Dismiss notice" onClick={() => setBanner(null)}><X size={16}/></button></div>}
-        {!connected && <div className="demo-banner"><div><Sparkles size={16}/><b>Demo mode</b><span>You're exploring with sample transactions. Changes are saved only in this browser, not to a database.</span></div><button onClick={() => setTab('settings')}>Connect Supabase <ArrowRight size={15}/></button></div>}
+        {usingDemo && <div className="demo-banner"><div><Sparkles size={16}/><b>Demo mode</b><span>You're exploring with sample transactions. Changes are saved only in this browser, not to a database.</span></div><button onClick={() => demoMode ? window.location.assign('/') : setTab('settings')}>{demoMode ? 'Private sign-in' : 'Connect Supabase'} <ArrowRight size={15}/></button></div>}
         {tab !== 'settings' && <div className="page-heading"><div><div className="eyebrow">YOUR MONEY, IN FOCUS</div><h1>{tab === 'overview' ? 'Overview' : tab === 'transactions' ? 'Transactions' : 'Monthly report'}</h1><p>{tab === 'overview' ? 'A clearer picture of your spending, every day.' : tab === 'transactions' ? 'Every purchase in one place. Review, search and recategorize.' : 'Your spending story, beautifully summarized.'}</p></div><div className="heading-actions"><select aria-label="Select reporting month" className="select month-select" value={month} onChange={e => setMonth(e.target.value)}>{monthOptions.map(m => <option value={m} key={m}>{monthLabel(m)}</option>)}</select><button className="btn primary" onClick={() => setShowAdd(true)}><Plus size={16}/> Add expense</button></div></div>}
 
         {tab === 'overview' && <>
@@ -299,9 +302,9 @@ export default function Dashboard() {
             <p className="report-disclaimer">Transactions imported from Wallet may reflect authorizations rather than final bank-posted amounts. Compare with your TD statement. This report is for personal budgeting, not official financial or tax reporting.</p></div>
         </>}
 
-        {tab === 'settings' && <><div className="page-heading"><div><div className="eyebrow">MAKE SPENDWISE YOURS</div><h1>Settings & setup</h1><p>Configure your budget and connect your Apple Pay automation.</p></div>{connected&&<button className="btn outline" onClick={()=>void supabase?.auth.signOut()}><LogOut size={17}/> Sign out</button>}</div>
+        {tab === 'settings' && <><div className="page-heading"><div><div className="eyebrow">MAKE SPENDWISE YOURS</div><h1>Settings & setup</h1><p>Configure your budget and connect your Apple Pay automation.</p></div>{connected&&!demoMode&&<button className="btn outline" onClick={()=>void supabase?.auth.signOut()}><LogOut size={17}/> Sign out</button>}</div>
           <div className="settings-grid"><div className="panel settings-card"><div className="panel-head"><div><h2>Monthly budget</h2><p>Set a spending target for {monthLabel(month)}.</p></div><Wallet size={22} color="#826be6"/></div><form className="budget-form" onSubmit={setBudget}><label htmlFor="budget">Budget (CAD)</label><div className="budget-form-row"><div className="currency-input"><span>$</span><input id="budget" inputMode="decimal" value={budgetInput} onChange={e=>setBudgetInput(e.target.value)}/></div><button className="btn primary" type="submit">Save budget</button></div></form><small className="muted">Budgets are stored per month. In demo mode, they stay in this browser.</small></div>
-            <div className="panel settings-card"><div className="panel-head"><div><h2>Data & privacy</h2><p>Where your spending data lives</p></div><ShieldCheck size={22} color="#2bb5a0"/></div><div className="setting-line"><span>Storage</span><b>{connected?'Supabase PostgreSQL':'Browser localStorage (demo)'}</b></div><div className="setting-line"><span>Login</span><b>{connected?'Email magic link':'Not required in demo'}</b></div><div className="setting-line"><span>Currency</span><b>CAD only (MVP)</b></div><div className="setting-line"><span>Bank credentials stored</span><b>No</b></div>{!connected&&<button className="btn outline" onClick={()=>{ if(window.confirm('Reset demo data and rules?')) {localStorage.removeItem('spendwise-demo-v1');setTxs(demoTransactions());setRules({});setBudgets([]);} }}>Reset demo data</button>}</div></div>
+            <div className="panel settings-card"><div className="panel-head"><div><h2>Data & privacy</h2><p>Where your spending data lives</p></div><ShieldCheck size={22} color="#2bb5a0"/></div><div className="setting-line"><span>Storage</span><b>{usingDemo?'Browser localStorage (demo)':'Supabase PostgreSQL'}</b></div><div className="setting-line"><span>Login</span><b>{usingDemo?'Not required in demo':'Email magic link'}</b></div><div className="setting-line"><span>Currency</span><b>CAD only (MVP)</b></div><div className="setting-line"><span>Bank credentials stored</span><b>No</b></div>{usingDemo&&<button className="btn outline" onClick={()=>{ if(window.confirm('Reset demo data and rules?')) {localStorage.removeItem('spendwise-demo-v1');setTxs(demoTransactions());setRules({});setBudgets([]);} }}>Reset demo data</button>}</div></div>
           <div className="panel setup-panel"><div className="panel-head"><div><h2>Connect Apple Wallet</h2><p>From iPhone payments to your private dashboard</p></div><span className="tiny-chip">Phase 2</span></div><div className="setup-steps"><div><span>01</span><p>Deploy Spendwise to an HTTPS address, configure Supabase and set your private ingestion key.</p></div><div><span>02</span><p>iPhone Shortcuts → Automation → Transaction / Wallet → choose TD Credit Card → Run Immediately.</p></div><div><span>03</span><p>Add <b>Get Contents of URL</b> with POST to <code>https://YOUR-APP.vercel.app/api/ingest</code>. Set header <code>X-Spendwise-Key</code> to your private key.</p></div><div><span>04</span><p>Use JSON request body with fields <code>merchant</code> = Shortcut Input → Merchant, <code>amount</code> = Shortcut Input → Amount, <code>currency</code> = CAD. Then test with your next normal in-store Apple Pay purchase.</p></div></div><div className="code-sample"><pre>{'{\n  "merchant": "Tim Hortons",\n  "amount": "8.50",\n  "currency": "CAD"\n}'}</pre><button className="btn outline" onClick={()=>void navigator.clipboard.writeText('{"merchant":"Tim Hortons","amount":"8.50","currency":"CAD"}').then(()=>notify('Example JSON copied.'))}>Copy sample JSON</button></div><p className="hint"><CircleHelp size={16}/> Do not put your TD password, card number or CVV in the Shortcut. Keep the ingest key private.</p></div>
           <div className="panel settings-card"><div className="panel-head"><div><h2>Import bank statements</h2><p>Fill gaps from online payments or physical-card purchases.</p></div><FileUp size={21}/></div><p className="muted">Export a CSV from TD EasyWeb, then choose which columns contain date, merchant and amount. Only CAD purchase rows are imported; make sure to choose whether purchases appear as positive or negative amounts.</p><label className="btn outline file-label"><FileUp size={16}/> Choose CSV file<input type="file" accept=".csv,text/csv" onChange={e=>{const f=e.target.files?.[0];if(f)void selectFile(f);e.target.value='';}}/></label></div>
         </>}

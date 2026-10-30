@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "tsc --target ES2020 --module commonjs --moduleResolution node --skipLibCheck --outDir .test-build lib/categorize.ts lib/types.ts && node --test tests/*.test.cjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.57.0",
